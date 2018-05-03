@@ -1,0 +1,149 @@
+<html>
+
+  <head>
+    <script src="https://js.stripe.com/v3/"></script>
+  </head>
+
+  <body>
+    <!-- 
+      Combination form of Upodi fields and Stripe. First portion will submit to stripe 
+      the PCI compliant tokenization of a credit card, saving this card for recurrent 
+      transactions via Upodi.
+      
+      The form demonstrates both credit card an manual invoice. If no payment method 
+      is added to a customer in Upodi, default is a manual invoice.
+      
+      Once completed, Stripe Elements submit the form, using the fields of Upodi
+      including a hidden field named stripeToken allowing the server side code 
+      to:
+      
+        1) create the customer using the fields retrieved, and autobill + currencycode
+            var newCustomerId = upodi.Customers.Add(...);
+        2) if paymentMethod = card append the stripeToken from the form:
+            var paymentMethodId = upodi.PaymentMethods.CreatePaymentMethod(
+              newCustomerId, CreatePaymentMethodRequest.CreateTokenBased(
+                stripeToken, "stripe", true));
+        3) continue flow to add subscription, amount and activate
+    -->
+    <form action="/charge" method="post" id="payment-form">
+      <dl>
+        <dt>Account number</dt>
+        <dd><input type="text" placeholder="accountNumber" required /></dd>
+        <dt>Company Name</dt>
+        <dd><input type="text" placeholder="companyName" /></dd>
+        <dt>Full Name</dt>
+        <dd><input type="text" placeholder="fullName" required /></dd>
+        <dt>VAT</dt>
+        <dd><input type="text" placeholder="companyvat" /></dd>
+        <dt>Address Line 1</dt>
+        <dd><input type="text" placeholder="addressLine1" /></dd>
+        <dt>Address Line 2</dt>
+        <dd><input type="text" placeholder="addressLine2" /></dd>
+        <dt>City</dt>
+        <dd><input type="text" placeholder="city" /></dd>
+        <dt>Region</dt>
+        <dd><input type="text" placeholder="county" /></dd>
+        <dt>Postal code</dt>
+        <dd><input type="text" placeholder="postalcode" /></dd>
+        <dt>Country</dt>
+        <dd>
+          <select>
+          <option value="Denmark">Denmark</option>
+          <option value="Sweden">Sweden</option>
+          <option value="Norway">Norway</option>
+        </select>
+        </dd>
+        <hr />
+        <dt>Primary e-mail</dt>
+        <dd><input type="text" placeholder="primaryEmail" /></dd>
+        <dt>Business phone</dt>
+        <dd><input type="text" placeholder="businessphone" /></dd>
+        <hr />
+        <dt><input type="radio" name="paymentMethod" value="" />Invoice</dt>
+        <dd>payment terms of an invoice is net 14 days</dd>
+        <dt><input type="radio" name="paymentMethod" value="card" />Credit card</dt>
+        <dd>
+          <div class="form-row">
+            <label for="card-element">
+            Credit or debit card
+          </label>
+            <div id="card-element">
+              <!-- A Stripe Element will be inserted here. -->
+            </div>
+
+            <!-- Used to display Element errors. -->
+            <div id="card-errors" role="alert"></div>
+          </div>
+        </dd>
+      </dl>
+      <button>Save customer and payment method</button>
+    </form>
+
+    <script>
+      var stripe = Stripe('{your public stripe key here}');
+      var elements = stripe.elements();
+
+      // Custom styling can be passed to options when creating an Element.
+      var style = {
+        base: {
+          // Add your base input styles here. For example:
+          fontSize: '16px',
+          color: "#32325d",
+        }
+      };
+
+      // Create an instance of the card Element.
+      var card = elements.create('card', {
+        style: style,
+        hidePostalCode: true
+      });
+
+      // Add an instance of the card Element into the `card-element` <div>.
+      card.mount('#card-element');
+
+      card.addEventListener('change', function(event) {
+        var displayError = document.getElementById('card-errors');
+        if (event.error) {
+          displayError.textContent = event.error.message;
+        } else {
+          displayError.textContent = '';
+        }
+      });
+
+      // Create a token or display an error when the form is submitted.
+      // submits the form (submit #1)
+      var form = document.getElementById('payment-form');
+      form.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        stripe.createToken(card).then(function(result) {
+          if (result.error) {
+            // Inform the customer that there was an error.
+            var errorElement = document.getElementById('card-errors');
+            errorElement.textContent = result.error.message;
+          } else {
+            // Send the token to your server.
+            stripeTokenHandler(result.token);
+          }
+        });
+      });
+
+      // re-submits the form (submit #2)
+      // handle form fields server side
+      function stripeTokenHandler(token) {
+        // Insert the token ID into the form so it gets submitted to the server
+        var form = document.getElementById('payment-form');
+        var hiddenInput = document.createElement('input');
+        hiddenInput.setAttribute('type', 'hidden');
+        hiddenInput.setAttribute('name', 'stripeToken');
+        hiddenInput.setAttribute('value', token.id);
+        form.appendChild(hiddenInput);
+
+        // Submit the form
+        form.submit();
+      }
+
+    </script>
+  </body>
+
+</html>
