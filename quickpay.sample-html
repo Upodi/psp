@@ -1,0 +1,104 @@
+<html>
+<head>
+<title></title>
+</head>
+<body>
+<!-- 
+      Combination form of Upodi fields and QuickPay. First portion will submit to QuickPay 
+      the PCI compliant tokenization of a credit card token, saving this card for recurrent 
+      transactions via Upodi.
+      
+      Once completed, Quickpay submit the form, returning the card token, using the fields of 
+      Upodi, allowing the server side code to:
+      
+        1) create the customer using the fields retrieved, and autobill + currencycode
+            var newCustomerId = upodi.Customers.Add(...);
+        2) if paymentMethod = card append the quickpay token from the form:
+            var paymentMethodId = upodi.PaymentMethods.CreatePaymentMethod(
+              newCustomerId, CreatePaymentMethodRequest.CreateTokenBased(
+                card-token, "quickpay", true));
+        3) continue flow to add subscription, amount and activate
+    -->
+<form id="checkout-form" class="form-horizontal" action="#" method="post">
+  <label for="name">Name</label>
+  <input type="text" name="name" value="">
+
+  <label for="address">Address</label>
+  <input type="text" name="address" value="">
+
+  <label for="zipcode">Zipcode</label>
+  <input type="text" name="zipcode" value="">
+
+  <label for="city">City</label>
+  <input type="text" name="city" value="">
+
+  <label>Card number</label>
+  <div class="card">
+    <div class="card-brand"></div>
+    <input type="text" autocomplete="off" data-quickpay="cardnumber" maxlength="16" />
+  </div>
+
+  <label>Expiration</label>
+  <input type="text" placeholder="MM / YY" autocomplete="off" data-quickpay="expiration">
+
+  <label>CVV/CVD</label>
+  <input type="text" maxlength="4" autocomplete="off" data-quickpay="cvd">
+
+  <button class="btn btn-primary" type="submit">Pay</button>
+</form>
+
+<style type="text/css">
+  .card {
+    position: relative;
+  }
+
+  .card-brand {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    font-weight: bold;
+  }
+
+  input.error {
+    border: 1px solid red;
+  }
+</style>
+
+<script src="https://payment.quickpay.net/embedded/v2/quickpay.js"></script>
+<script type="text/javascript">
+  QuickPay.Embedded.Form(document.querySelector('#checkout-form'), {
+    merchant_id: {please add merchant id here},
+    agreement_id: {please add agreement id here},
+    brandChanged: function(brand) {
+      document.querySelector(".card-brand").innerHTML = brand;
+    },
+    beforeCreate: function(form) {
+      var button = document.querySelector("#checkout-form button");
+      button.setAttribute("disabled", "disabled");
+      button.innerHTML = "Please wait...";
+
+      var inputs = document.querySelectorAll("input.error");
+      for (var i = 0; i < inputs.length; i++) {
+        inputs[i].classList.remove("error");
+      }
+    },
+    success: function(form, data) {
+      return true; // Return false to prevent form submit
+    },
+    failure: function(form, type, message, data) {
+      switch (type) {
+        case "validation":
+          for (var i = 0; i < data.length; i++) {
+            document.querySelector('input[data-quickpay=' + data[i] + ']').classList.add('error');
+          }
+          break;
+        default:
+          alert('Error: ' + type + ': ' + message);
+      }
+
+      document.querySelector("#checkout-form button").innerHTML = "Pay";
+    }
+  });
+</script>
+</body>
+</html>
